@@ -9,11 +9,16 @@ class CanvasManager {
         this.isDrawing = false;
         this.currentStroke = null;
         this.strokes = new Map(); // strokeId -> stroke data
+        this.shapes = new Map(); // shapeId -> shape data (rectangles, circles, lines)
+        this.texts = new Map(); // textId -> text data
+        this.images = new Map(); // imageId -> image data
         this.remoteCursors = new Map(); // userId -> cursor data
         
         this.tool = 'brush';
         this.color = '#000000';
         this.lineWidth = 5;
+        this.fontSize = 24;
+        this.startPoint = null;
         
         this.setupCanvas();
         this.setupEventListeners();
@@ -83,10 +88,39 @@ class CanvasManager {
     }
 
     startDrawing(e) {
-        this.isDrawing = true;
         const coords = this.getCanvasCoordinates(e);
+        this.startPoint = coords;
         
-        // Create new stroke
+        // Handle different tools
+        if (this.tool === 'text') {
+            this.startTextInput(coords);
+            return;
+        }
+        
+        if (this.tool === 'image') {
+            document.getElementById('image-input').click();
+            return;
+        }
+        
+        // For shape tools (rectangle, circle, line), we need to track start and end
+        if (['rectangle', 'circle', 'line'].includes(this.tool)) {
+            this.isDrawing = true;
+            const shapeId = `shape-${Date.now()}-${Math.random()}`;
+            this.currentStroke = {
+                id: shapeId,
+                startX: coords.x,
+                startY: coords.y,
+                endX: coords.x,
+                endY: coords.y,
+                color: this.color,
+                lineWidth: this.lineWidth,
+                tool: this.tool
+            };
+            return;
+        }
+        
+        // For brush and eraser (original behavior)
+        this.isDrawing = true;
         const strokeId = `local-${Date.now()}-${Math.random()}`;
         this.currentStroke = {
             id: strokeId,
@@ -110,6 +144,18 @@ class CanvasManager {
         if (!this.isDrawing || !this.currentStroke) return;
         
         const coords = this.getCanvasCoordinates(e);
+        
+        // Handle shape tools (preview while drawing)
+        if (['rectangle', 'circle', 'line'].includes(this.tool)) {
+            this.currentStroke.endX = coords.x;
+            this.currentStroke.endY = coords.y;
+            // Redraw to show preview
+            this.redraw();
+            this.drawShapePreview(this.currentStroke);
+            return;
+        }
+        
+        // For brush and eraser (original behavior)
         this.currentStroke.points.push(coords);
         
         // Draw line segment
@@ -123,15 +169,37 @@ class CanvasManager {
     }
 
     stopDrawing() {
-        if (!this.isDrawing) return;
+        if (!this.isDrawing || !this.currentStroke) return;
         
-        this.isDrawing = false;
-        
-        if (this.currentStroke && window.wsManager) {
+        // Handle shape tools - finalize the shape
+        if (['rectangle', 'circle', 'line'].includes(this.tool)) {
+            const shape = {
+                id: this.currentStroke.id,
+                startX: this.currentStroke.startX,
+                startY: this.currentStroke.startY,
+                endX: this.currentStroke.endX,
+                endY: this.currentStroke.endY,
+                color: this.currentStroke.color,
+                lineWidth: this.currentStroke.lineWidth,
+                tool: this.currentStroke.tool
+            };
+            
+            this.shapes.set(shape.id, shape);
+            
+            // Notify WebSocket manager
+            if (window.wsManager) {
+                window.wsManager.drawShape(shape);
+            }
+            
+            this.redraw();
+        } else if (this.currentStroke && window.wsManager) {
+            // For brush and eraser
             window.wsManager.endDrawing(this.currentStroke.id);
         }
         
+        this.isDrawing = false;
         this.currentStroke = null;
+        this.startPoint = null;
     }
 
     drawPoint(point, stroke) {
@@ -244,9 +312,24 @@ class CanvasManager {
     redraw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Redraw all strokes in order
+        // Redraw all images first (background layer)
+        this.images.forEach(image => {
+            this.redrawImage(image);
+        });
+        
+        // Redraw all strokes
         this.strokes.forEach(stroke => {
             this.redrawStroke(stroke);
+        });
+        
+        // Redraw all shapes
+        this.shapes.forEach(shape => {
+            this.redrawShape(shape);
+        });
+        
+        // Redraw all texts
+        this.texts.forEach(text => {
+            this.redrawText(text);
         });
     }
 
@@ -301,6 +384,222 @@ class CanvasManager {
     // Set line width
     setLineWidth(width) {
         this.lineWidth = width;
+    }
+
+    // Set font size
+    setFontSize(size) {
+        this.fontSize = size;
+    }
+
+    // Shape drawing methods
+    drawShapePreview(shape) {
+        if (shape.tool === 'rectangle') {
+            const x = Math.min(shape.startX, shape.endX);
+            const y = Math.min(shape.startY, shape.endY);
+            const width = Math.abs(shape.endX - shape.startX);
+            const height = Math.abs(shape.endY - shape.startY);
+            
+            this.ctx.strokeStyle = shape.color;
+            this.ctx.lineWidth = shape.lineWidth;
+            this.ctx.strokeRect(x, y, width, height);
+        } else if (shape.tool === 'circle') {
+            const centerX = (shape.startX + shape.endX) / 2;
+            const centerY = (shape.startY + shape.endY) / 2;
+            const radiusX = Math.abs(shape.endX - shape.startX) / 2;
+            const radiusY = Math.abs(shape.endY - shape.startY) / 2;
+            const radius = Math.max(radiusX, radiusY);
+            
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            this.ctx.strokeStyle = shape.color;
+            this.ctx.lineWidth = shape.lineWidth;
+            this.ctx.stroke();
+        } else if (shape.tool === 'line') {
+            this.ctx.beginPath();
+            this.ctx.moveTo(shape.startX, shape.startY);
+            this.ctx.lineTo(shape.endX, shape.endY);
+            this.ctx.strokeStyle = shape.color;
+            this.ctx.lineWidth = shape.lineWidth;
+            this.ctx.stroke();
+        }
+    }
+
+    redrawShape(shape) {
+        if (shape.tool === 'rectangle') {
+            const x = Math.min(shape.startX, shape.endX);
+            const y = Math.min(shape.startY, shape.endY);
+            const width = Math.abs(shape.endX - shape.startX);
+            const height = Math.abs(shape.endY - shape.startY);
+            
+            this.ctx.strokeStyle = shape.color;
+            this.ctx.lineWidth = shape.lineWidth;
+            this.ctx.strokeRect(x, y, width, height);
+        } else if (shape.tool === 'circle') {
+            const centerX = (shape.startX + shape.endX) / 2;
+            const centerY = (shape.startY + shape.endY) / 2;
+            const radiusX = Math.abs(shape.endX - shape.startX) / 2;
+            const radiusY = Math.abs(shape.endY - shape.startY) / 2;
+            const radius = Math.max(radiusX, radiusY);
+            
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            this.ctx.strokeStyle = shape.color;
+            this.ctx.lineWidth = shape.lineWidth;
+            this.ctx.stroke();
+        } else if (shape.tool === 'line') {
+            this.ctx.beginPath();
+            this.ctx.moveTo(shape.startX, shape.startY);
+            this.ctx.lineTo(shape.endX, shape.endY);
+            this.ctx.strokeStyle = shape.color;
+            this.ctx.lineWidth = shape.lineWidth;
+            this.ctx.stroke();
+        }
+    }
+
+    // Text methods
+    startTextInput(coords) {
+        const textInput = document.getElementById('text-input');
+        if (textInput) {
+            // Position input near click location (optional - can be improved)
+            textInput.focus();
+            textInput.onblur = () => {
+                if (textInput.value.trim()) {
+                    this.addText(coords.x, coords.y, textInput.value);
+                }
+                textInput.value = '';
+            };
+            textInput.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    if (textInput.value.trim()) {
+                        this.addText(coords.x, coords.y, textInput.value);
+                    }
+                    textInput.value = '';
+                    textInput.blur();
+                } else if (e.key === 'Escape') {
+                    textInput.value = '';
+                    textInput.blur();
+                }
+            };
+        }
+    }
+
+    addText(x, y, text) {
+        const textId = `text-${Date.now()}-${Math.random()}`;
+        const textData = {
+            id: textId,
+            x: x,
+            y: y,
+            text: text,
+            color: this.color,
+            fontSize: this.fontSize
+        };
+        
+        this.texts.set(textId, textData);
+        this.redraw();
+        
+        // Notify WebSocket manager
+        if (window.wsManager) {
+            window.wsManager.drawText(textData);
+        }
+    }
+
+    redrawText(text) {
+        this.ctx.fillStyle = text.color;
+        this.ctx.font = `${text.fontSize}px Arial`;
+        this.ctx.fillText(text.text, text.x, text.y);
+    }
+
+    // Image methods
+    addImage(x, y, imageData) {
+        const imageId = `image-${Date.now()}-${Math.random()}`;
+        const img = new Image();
+        img.onload = () => {
+            const imageObj = {
+                id: imageId,
+                x: x,
+                y: y,
+                width: img.width,
+                height: img.height,
+                data: imageData
+            };
+            
+            this.images.set(imageId, imageObj);
+            this.redraw();
+            
+            // Notify WebSocket manager
+            if (window.wsManager) {
+                window.wsManager.drawImage(imageObj);
+            }
+        };
+        img.src = imageData;
+    }
+
+    redrawImage(image) {
+        if (!image.data) return;
+        const img = new Image();
+        img.onload = () => {
+            this.ctx.drawImage(img, image.x, image.y, image.width, image.height);
+        };
+        img.onerror = () => {
+            console.error('Failed to load image:', image.id);
+        };
+        img.src = image.data;
+    }
+
+    // Remote shape methods
+    remoteDrawShape(shapeData) {
+        this.shapes.set(shapeData.id, shapeData);
+        this.redraw();
+    }
+
+    remoteDrawText(textData) {
+        this.texts.set(textData.id, textData);
+        this.redraw();
+    }
+
+    remoteDrawImage(imageData) {
+        this.images.set(imageData.id, imageData);
+        this.redraw();
+    }
+
+    // Update loadState to handle shapes, texts, and images
+    loadState(history, currentState) {
+        this.strokes.clear();
+        this.shapes.clear();
+        this.texts.clear();
+        this.images.clear();
+        
+        // Add all strokes from history
+        history.forEach(strokeData => {
+            if (strokeData.type === 'shape') {
+                this.shapes.set(strokeData.id, strokeData);
+            } else if (strokeData.type === 'text') {
+                this.texts.set(strokeData.id, strokeData);
+            } else if (strokeData.type === 'image') {
+                this.images.set(strokeData.id, strokeData);
+            } else {
+                const stroke = {
+                    id: strokeData.id,
+                    points: strokeData.points,
+                    color: strokeData.color,
+                    lineWidth: strokeData.lineWidth,
+                    tool: strokeData.tool,
+                    userId: strokeData.userId
+                };
+                this.strokes.set(stroke.id, stroke);
+            }
+        });
+        
+        this.redraw();
+    }
+
+    // Clear canvas
+    clear() {
+        this.strokes.clear();
+        this.shapes.clear();
+        this.texts.clear();
+        this.images.clear();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 }
 

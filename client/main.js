@@ -9,14 +9,59 @@
     
     // Tool selection
     const toolButtons = document.querySelectorAll('.tool-btn');
+    const textOptions = document.getElementById('text-options');
+    
     toolButtons.forEach(btn => {
         btn.addEventListener('click', () => {
+            // Skip if it's the image input button
+            if (btn.id === 'image-tool') {
+                return; // Image tool is handled separately
+            }
+            
             toolButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             const tool = btn.getAttribute('data-tool');
             window.canvasManager.setTool(tool);
+            
+            // Show/hide text options
+            if (textOptions) {
+                if (tool === 'text') {
+                    textOptions.style.display = 'block';
+                } else {
+                    textOptions.style.display = 'none';
+                }
+            }
         });
     });
+    
+    // Image tool handler
+    const imageTool = document.getElementById('image-tool');
+    const imageInput = document.getElementById('image-input');
+    if (imageTool && imageInput) {
+        imageTool.addEventListener('click', () => {
+            toolButtons.forEach(b => b.classList.remove('active'));
+            imageTool.classList.add('active');
+            window.canvasManager.setTool('image');
+            imageInput.click();
+        });
+        
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (loadEvent) => {
+                    const canvas = document.getElementById('drawing-canvas');
+                    const rect = canvas.getBoundingClientRect();
+                    const x = rect.width / 2;
+                    const y = rect.height / 2;
+                    window.canvasManager.addImage(x, y, loadEvent.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+            // Reset input so same file can be selected again
+            e.target.value = '';
+        });
+    }
     
     // Color picker
     const colorInput = document.getElementById('color-input');
@@ -42,6 +87,17 @@
         window.canvasManager.setLineWidth(size);
         brushSizeValue.textContent = size + 'px';
     });
+    
+    // Font size for text tool
+    const fontSize = document.getElementById('font-size');
+    const fontSizeValue = document.getElementById('font-size-value');
+    if (fontSize && fontSizeValue) {
+        fontSize.addEventListener('input', (e) => {
+            const size = parseInt(e.target.value);
+            window.canvasManager.setFontSize(size);
+            fontSizeValue.textContent = size + 'px';
+        });
+    }
     
     // Undo/Redo buttons
     const undoBtn = document.getElementById('undo-btn');

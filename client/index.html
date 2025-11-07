@@ -32,6 +32,28 @@
                             🧹 Eraser
                         </button>
                     </div>
+                    <div class="tool-buttons">
+                        <button id="rectangle-tool" class="tool-btn" data-tool="rectangle">
+                            ▭ Rectangle
+                        </button>
+                        <button id="circle-tool" class="tool-btn" data-tool="circle">
+                            ⭕ Circle
+                        </button>
+                    </div>
+                    <div class="tool-buttons">
+                        <button id="line-tool" class="tool-btn" data-tool="line">
+                            ➖ Line
+                        </button>
+                        <button id="text-tool" class="tool-btn" data-tool="text">
+                            📝 Text
+                        </button>
+                    </div>
+                    <div class="tool-buttons">
+                        <button id="image-tool" class="tool-btn" data-tool="image">
+                            🖼️ Image
+                        </button>
+                        <input type="file" id="image-input" accept="image/*" style="display: none;">
+                    </div>
                 </div>
 
                 <div class="tool-section">
@@ -55,6 +77,13 @@
                     <h3>Brush Size</h3>
                     <input type="range" id="brush-size" min="1" max="50" value="5">
                     <span id="brush-size-value">5px</span>
+                </div>
+
+                <div class="tool-section" id="text-options" style="display: none;">
+                    <h3>Text Options</h3>
+                    <input type="text" id="text-input" placeholder="Click canvas to add text..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                    <input type="range" id="font-size" min="12" max="72" value="24">
+                    <span id="font-size-value">24px</span>
                 </div>
 
                 <div class="tool-section">

@@ -160,6 +160,39 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle shape drawing
+  socket.on('draw-shape', (data: { id: string; startX: number; startY: number; endX: number; endY: number; color: string; lineWidth: number; tool: string }) => {
+    if (!currentRoom) return;
+
+    // Broadcast to other users in room
+    socket.to(currentRoom).emit('draw-shape', {
+      ...data,
+      userId
+    });
+  });
+
+  // Handle text drawing
+  socket.on('draw-text', (data: { id: string; x: number; y: number; text: string; color: string; fontSize: number }) => {
+    if (!currentRoom) return;
+
+    // Broadcast to other users in room
+    socket.to(currentRoom).emit('draw-text', {
+      ...data,
+      userId
+    });
+  });
+
+  // Handle image drawing
+  socket.on('draw-image', (data: { id: string; x: number; y: number; width: number; height: number; data: string }) => {
+    if (!currentRoom) return;
+
+    // Broadcast to other users in room
+    socket.to(currentRoom).emit('draw-image', {
+      ...data,
+      userId
+    });
+  });
+
   // Handle disconnection
   socket.on('disconnect', () => {
     if (currentRoom) {

@@ -90,6 +90,27 @@ class WebSocketManager {
         this.socket.on('users-updated', (users) => {
             this.updateUsersList(users);
         });
+
+        // Shape events from other users
+        this.socket.on('draw-shape', (data) => {
+            if (window.canvasManager && data.userId !== this.userId) {
+                window.canvasManager.remoteDrawShape(data);
+            }
+        });
+
+        // Text events from other users
+        this.socket.on('draw-text', (data) => {
+            if (window.canvasManager && data.userId !== this.userId) {
+                window.canvasManager.remoteDrawText(data);
+            }
+        });
+
+        // Image events from other users
+        this.socket.on('draw-image', (data) => {
+            if (window.canvasManager && data.userId !== this.userId) {
+                window.canvasManager.remoteDrawImage(data);
+            }
+        });
     }
 
     joinRoom(roomId) {
@@ -148,6 +169,21 @@ class WebSocketManager {
     redo() {
         if (!this.connected || !this.socket) return;
         this.socket.emit('redo');
+    }
+
+    drawShape(shape) {
+        if (!this.connected || !this.socket) return;
+        this.socket.emit('draw-shape', shape);
+    }
+
+    drawText(textData) {
+        if (!this.connected || !this.socket) return;
+        this.socket.emit('draw-text', textData);
+    }
+
+    drawImage(imageData) {
+        if (!this.connected || !this.socket) return;
+        this.socket.emit('draw-image', imageData);
     }
 
     updateConnectionStatus(connected) {
