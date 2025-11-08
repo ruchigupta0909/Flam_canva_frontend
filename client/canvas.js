@@ -601,5 +601,222 @@ class CanvasManager {
         this.images.clear();
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
+
+    // Export canvas state for saving
+    exportState() {
+        return {
+            strokes: Array.from(this.strokes.values()),
+            shapes: Array.from(this.shapes.values()),
+            texts: Array.from(this.texts.values()),
+            images: Array.from(this.images.values()),
+            canvasWidth: this.canvas.width,
+            canvasHeight: this.canvas.height,
+            timestamp: Date.now()
+        };
+    }
+
+    // Import canvas state for loading
+    importState(state) {
+        if (!state) return false;
+
+        // Clear current canvas
+        this.clear();
+
+        // Restore canvas dimensions if provided
+        if (state.canvasWidth && state.canvasHeight) {
+            this.canvas.width = state.canvasWidth;
+            this.canvas.height = state.canvasHeight;
+            this.cursorLayer.width = state.canvasWidth;
+            this.cursorLayer.height = state.canvasHeight;
+        }
+
+        // Restore strokes
+        if (state.strokes && Array.isArray(state.strokes)) {
+            state.strokes.forEach(stroke => {
+                this.strokes.set(stroke.id, stroke);
+            });
+        }
+
+        // Restore shapes
+        if (state.shapes && Array.isArray(state.shapes)) {
+            state.shapes.forEach(shape => {
+                this.shapes.set(shape.id, shape);
+            });
+        }
+
+        // Restore texts
+        if (state.texts && Array.isArray(state.texts)) {
+            state.texts.forEach(text => {
+                this.texts.set(text.id, text);
+            });
+        }
+
+        // Restore images
+        if (state.images && Array.isArray(state.images)) {
+            state.images.forEach(image => {
+                this.images.set(image.id, image);
+            });
+        }
+
+        // Redraw everything
+        this.redraw();
+
+        return true;
+    }
+
+    // Export canvas as PNG image
+    exportAsPNG() {
+        // Create a temporary canvas to render everything
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = this.canvas.width;
+        tempCanvas.height = this.canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // Fill with white background
+        tempCtx.fillStyle = 'white';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        // Collect all image loading promises
+        const imagePromises = [];
+        const imageMap = new Map();
+
+        // Load all images
+        this.images.forEach(image => {
+            const promise = new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    imageMap.set(image.id, img);
+                    resolve(img);
+                };
+                img.onerror = reject;
+                img.src = image.data;
+            });
+            imagePromises.push(promise);
+        });
+
+        // Wait for all images to load, then draw everything
+        Promise.all(imagePromises).then(() => {
+            // Draw all images first (background layer)
+            this.images.forEach(image => {
+                const img = imageMap.get(image.id);
+                if (img) {
+                    tempCtx.drawImage(img, image.x, image.y, image.width, image.height);
+                }
+            });
+
+            // Draw all strokes
+            this.strokes.forEach(stroke => {
+                this.drawStrokeOnContext(tempCtx, stroke);
+            });
+
+            // Draw all shapes
+            this.shapes.forEach(shape => {
+                this.drawShapeOnContext(tempCtx, shape);
+            });
+
+            // Draw all texts
+            this.texts.forEach(text => {
+                tempCtx.fillStyle = text.color;
+                tempCtx.font = `${text.fontSize}px Arial`;
+                tempCtx.fillText(text.text, text.x, text.y);
+            });
+
+            // Export as PNG
+            const dataURL = tempCanvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `canvas-${Date.now()}.png`;
+            link.href = dataURL;
+            link.click();
+        }).catch(error => {
+            console.error('Error exporting canvas:', error);
+            alert('Error exporting canvas. Please try again.');
+        });
+
+        // If no images, export immediately
+        if (this.images.size === 0) {
+            // Draw all strokes
+            this.strokes.forEach(stroke => {
+                this.drawStrokeOnContext(tempCtx, stroke);
+            });
+
+            // Draw all shapes
+            this.shapes.forEach(shape => {
+                this.drawShapeOnContext(tempCtx, shape);
+            });
+
+            // Draw all texts
+            this.texts.forEach(text => {
+                tempCtx.fillStyle = text.color;
+                tempCtx.font = `${text.fontSize}px Arial`;
+                tempCtx.fillText(text.text, text.x, text.y);
+            });
+
+            // Export as PNG
+            const dataURL = tempCanvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `canvas-${Date.now()}.png`;
+            link.href = dataURL;
+            link.click();
+        }
+    }
+
+    // Helper method to draw stroke on any context
+    drawStrokeOnContext(ctx, stroke) {
+        if (!stroke.points || stroke.points.length === 0) return;
+
+        ctx.beginPath();
+        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+
+        for (let i = 1; i < stroke.points.length; i++) {
+            ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = stroke.lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        if (stroke.tool === 'eraser') {
+            ctx.globalCompositeOperation = 'destination-out';
+        } else {
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Helper method to draw shape on any context
+    drawShapeOnContext(ctx, shape) {
+        if (shape.tool === 'rectangle') {
+            const x = Math.min(shape.startX, shape.endX);
+            const y = Math.min(shape.startY, shape.endY);
+            const width = Math.abs(shape.endX - shape.startX);
+            const height = Math.abs(shape.endY - shape.startY);
+            
+            ctx.strokeStyle = shape.color;
+            ctx.lineWidth = shape.lineWidth;
+            ctx.strokeRect(x, y, width, height);
+        } else if (shape.tool === 'circle') {
+            const centerX = (shape.startX + shape.endX) / 2;
+            const centerY = (shape.startY + shape.endY) / 2;
+            const radiusX = Math.abs(shape.endX - shape.startX) / 2;
+            const radiusY = Math.abs(shape.endY - shape.startY) / 2;
+            const radius = Math.max(radiusX, radiusY);
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = shape.color;
+            ctx.lineWidth = shape.lineWidth;
+            ctx.stroke();
+        } else if (shape.tool === 'line') {
+            ctx.beginPath();
+            ctx.moveTo(shape.startX, shape.startY);
+            ctx.lineTo(shape.endX, shape.endY);
+            ctx.strokeStyle = shape.color;
+            ctx.lineWidth = shape.lineWidth;
+            ctx.stroke();
+        }
+    }
 }
 

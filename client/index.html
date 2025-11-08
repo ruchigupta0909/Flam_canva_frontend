@@ -4,17 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Collaborative Canvas</title>
+    <title>Collaborative DrawingCanvas</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <div class="container">
         <header>
-            <h1>🎨 Collaborative Canvas</h1>
+            <h1>Collaborative Drawing Canvas</h1>
             <div class="user-info">
                 <div class="online-users">
-                    <span class="label">Online:</span>
+                    <span class="label">👥 Online:</span>
                     <div id="users-list"></div>
                 </div>
             </div>
@@ -23,7 +23,7 @@
         <div class="main-content">
             <aside class="toolbar">
                 <div class="tool-section">
-                    <h3>Tools</h3>
+                    <h3>🛠️ Tools</h3>
                     <div class="tool-buttons">
                         <button id="brush-tool" class="tool-btn active" data-tool="brush">
                             🖌️ Brush
@@ -57,7 +57,7 @@
                 </div>
 
                 <div class="tool-section">
-                    <h3>Color</h3>
+                    <h3>🎨 Color</h3>
                     <div class="color-picker">
                         <input type="color" id="color-input" value="#000000">
                         <div class="color-presets">
@@ -74,24 +74,37 @@
                 </div>
 
                 <div class="tool-section">
-                    <h3>Brush Size</h3>
+                    <h3>📏 Brush Size</h3>
                     <input type="range" id="brush-size" min="1" max="50" value="5">
                     <span id="brush-size-value">5px</span>
                 </div>
 
                 <div class="tool-section" id="text-options" style="display: none;">
-                    <h3>Text Options</h3>
-                    <input type="text" id="text-input" placeholder="Click canvas to add text..." style="width: 100%; padding: 8px; margin-bottom: 10px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                    <h3>📝 Text Options</h3>
+                    <input type="text" id="text-input" placeholder="Click canvas to add text...">
                     <input type="range" id="font-size" min="12" max="72" value="24">
                     <span id="font-size-value">24px</span>
                 </div>
 
                 <div class="tool-section">
-                    <h3>Actions</h3>
+                    <h3>⚡ Actions</h3>
                     <div class="action-buttons">
                         <button id="undo-btn" class="action-btn">↶ Undo</button>
                         <button id="redo-btn" class="action-btn">↷ Redo</button>
                         <button id="clear-btn" class="action-btn danger">🗑️ Clear</button>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <h3>💾 Save & Load</h3>
+                    <div class="action-buttons">
+                        <button id="save-btn" class="action-btn save-btn">💾 Save Session</button>
+                        <button id="load-btn" class="action-btn load-btn">📂 Load Session</button>
+                        <button id="export-btn" class="action-btn export-btn">📥 Export as PNG</button>
+                    </div>
+                    <div id="sessions-list" style="display: none; margin-top: 15px; max-height: 200px; overflow-y: auto;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 10px; font-weight: 600;">Saved Sessions:</div>
+                        <div id="sessions-container"></div>
                     </div>
                 </div>
 
