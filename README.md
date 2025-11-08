@@ -89,7 +89,7 @@ npm run dev
 
 ### 🛠️ Technical Features
 
-- **Vanilla JavaScript**: No frontend frameworks - pure DOM/Canvas API
+- **Vanilla JavaScript**: No frontend frameworks - pure DOM
 - **TypeScript Backend**: Type-safe server code
 - **WebSocket Communication**: Real-time bidirectional communication using Socket.io
 - **Efficient Canvas Operations**: Optimized path drawing and redrawing
@@ -311,4 +311,4 @@ For questions or support, please open an issue on GitHub.
 
 ---
 
-**Made with ❤️ using vanilla JavaScript and TypeScript**
+
